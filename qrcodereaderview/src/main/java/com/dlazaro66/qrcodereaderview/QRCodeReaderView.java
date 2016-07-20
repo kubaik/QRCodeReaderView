@@ -36,7 +36,6 @@ import com.google.zxing.client.android.camera.open.CameraManager;
 import com.google.zxing.common.HybridBinarizer;
 import com.google.zxing.qrcode.QRCodeReader;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * QRCodeReaderView - Class which uses ZXING lib and let you easily integrate a QR decoder view.
@@ -65,7 +64,7 @@ public class QRCodeReaderView extends SurfaceView
   private int mPreviewHeight;
   private SurfaceHolder mHolder;
   private CameraManager mCameraManager;
-  protected AtomicBoolean qrDecodingEnabled;
+  protected boolean qrDecodingEnabled;
 
   public QRCodeReaderView(Context context) {
     super(context);
@@ -82,7 +81,7 @@ public class QRCodeReaderView extends SurfaceView
   }
 
   public void setQrDecodingEnabled(boolean qrDecodingEnabled) {
-    this.qrDecodingEnabled.set(qrDecodingEnabled);
+    this.qrDecodingEnabled = qrDecodingEnabled;
   }
 
   public CameraManager getCameraManager() {
@@ -90,7 +89,7 @@ public class QRCodeReaderView extends SurfaceView
   }
 
   @SuppressWarnings("deprecation") private void init() {
-    qrDecodingEnabled = new AtomicBoolean(true);
+    qrDecodingEnabled = true;
     if (checkCameraHardware(getContext())) {
       mCameraManager = new CameraManager(getContext());
 
@@ -139,37 +138,38 @@ public class QRCodeReaderView extends SurfaceView
   // Called when camera take a frame
   @Override public void onPreviewFrame(byte[] data, Camera camera) {
 
-    if (qrDecodingEnabled.get()) {
+    if (!qrDecodingEnabled) {
+      return;
+    }
 
-      PlanarYUVLuminanceSource source =
-          mCameraManager.buildLuminanceSource(data, mPreviewWidth, mPreviewHeight);
+    PlanarYUVLuminanceSource source =
+        mCameraManager.buildLuminanceSource(data, mPreviewWidth, mPreviewHeight);
 
-      HybridBinarizer hybBin = new HybridBinarizer(source);
-      BinaryBitmap bitmap = new BinaryBitmap(hybBin);
+    HybridBinarizer hybBin = new HybridBinarizer(source);
+    BinaryBitmap bitmap = new BinaryBitmap(hybBin);
 
-      try {
-        Result result = mQRCodeReader.decode(bitmap);
+    try {
+      Result result = mQRCodeReader.decode(bitmap);
 
-        // Notify we found a QRCode
-        if (mOnQRCodeReadListener != null) {
-          // Transform resultPoints to View coordinates
-          PointF[] transformedPoints = transformToViewCoordinates(result.getResultPoints());
-          mOnQRCodeReadListener.onQRCodeRead(result.getText(), transformedPoints);
-        }
-      } catch (ChecksumException e) {
-        Log.d(TAG, "ChecksumException");
-        e.printStackTrace();
-      } catch (NotFoundException e) {
-        // Notify QR not found
-        if (mOnQRCodeReadListener != null) {
-          mOnQRCodeReadListener.QRCodeNotFoundOnCamImage();
-        }
-      } catch (FormatException e) {
-        Log.d(TAG, "FormatException");
-        e.printStackTrace();
-      } finally {
-        mQRCodeReader.reset();
+      // Notify we found a QRCode
+      if (mOnQRCodeReadListener != null) {
+        // Transform resultPoints to View coordinates
+        PointF[] transformedPoints = transformToViewCoordinates(result.getResultPoints());
+        mOnQRCodeReadListener.onQRCodeRead(result.getText(), transformedPoints);
       }
+    } catch (ChecksumException e) {
+      Log.d(TAG, "ChecksumException");
+      e.printStackTrace();
+    } catch (NotFoundException e) {
+      // Notify QR not found
+      if (mOnQRCodeReadListener != null) {
+        mOnQRCodeReadListener.QRCodeNotFoundOnCamImage();
+      }
+    } catch (FormatException e) {
+      Log.d(TAG, "FormatException");
+      e.printStackTrace();
+    } finally {
+      mQRCodeReader.reset();
     }
   }
 
