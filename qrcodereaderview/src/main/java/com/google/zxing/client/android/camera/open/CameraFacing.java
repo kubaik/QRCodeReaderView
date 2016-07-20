@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 ZXing authors
+ * Copyright (C) 2015 ZXing authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.zxing.client.android.camera.open;
 
-import android.hardware.Camera;
+public enum CameraFacing {
 
-/**
- * Default implementation for Android before API 9 / Gingerbread.
- */
-final class DefaultOpenCameraInterface implements OpenCameraInterface {
+  BACK,  // must be value 0!
+  FRONT, // must be value 1!
 
-  /**
-   * Calls {@link Camera#open()}.
-   */
-  @Override public Camera open() {
-    return Camera.open();
-  }
 }

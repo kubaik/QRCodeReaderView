@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.zxing.client.android.camera.open;
+package com.google.zxing.client.android.camera;
 
 import android.content.Context;
 import android.graphics.Point;
@@ -22,6 +22,8 @@ import android.hardware.Camera;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import com.google.zxing.PlanarYUVLuminanceSource;
+import com.google.zxing.client.android.camera.open.OpenCamera;
+import com.google.zxing.client.android.camera.open.OpenCameraInterface;
 import java.io.IOException;
 
 /**
@@ -42,10 +44,11 @@ public final class CameraManager {
 
   private final Context context;
   private final CameraConfigurationManager configManager;
-  private Camera camera;
+  private OpenCamera camera;
   private AutoFocusManager autoFocusManager;
   private boolean initialized;
   private boolean previewing;
+  private int requestedCameraId = OpenCameraInterface.NO_REQUESTED_CAMERA;
 
   // PreviewCallback references are also removed from original ZXING authors work, since We're using our own interface
   // FramingRects references are also removed from original ZXING authors work, since We're using all view size while detecting QR-Codes
@@ -56,7 +59,7 @@ public final class CameraManager {
   }
 
   public Camera getCamera() {
-    return camera;
+    return camera.getCamera();
   }
 
   public Point getPreviewSize() {
@@ -71,37 +74,37 @@ public final class CameraManager {
    */
   public synchronized void openDriver(SurfaceHolder holder, int viewWidth, int viewHeight)
       throws IOException {
-    Camera theCamera = camera;
+    OpenCamera theCamera = camera;
     if (theCamera == null) {
-      theCamera = new OpenCameraManager().build().open();
+      theCamera = OpenCameraInterface.open(requestedCameraId);
       if (theCamera == null) {
         throw new IOException();
       }
       camera = theCamera;
     }
-    theCamera.setPreviewDisplay(holder);
+    theCamera.getCamera().setPreviewDisplay(holder);
 
     if (!initialized) {
       initialized = true;
-      configManager.initFromCameraParameters(theCamera, viewWidth, viewHeight);
+      configManager.initFromCameraParameters(theCamera.getCamera(), viewWidth, viewHeight);
     }
 
-    Camera.Parameters parameters = theCamera.getParameters();
+    Camera.Parameters parameters = theCamera.getCamera().getParameters();
     String parametersFlattened =
         parameters == null ? null : parameters.flatten(); // Save these, temporarily
     try {
-      configManager.setDesiredCameraParameters(theCamera, false);
+      configManager.setDesiredCameraParameters(theCamera.getCamera(), false);
     } catch (RuntimeException re) {
       // Driver failed
       Log.w(TAG, "Camera rejected parameters. Setting only minimal safe-mode parameters");
       Log.i(TAG, "Resetting to saved camera params: " + parametersFlattened);
       // Reset:
       if (parametersFlattened != null) {
-        parameters = theCamera.getParameters();
+        parameters = theCamera.getCamera().getParameters();
         parameters.unflatten(parametersFlattened);
         try {
-          theCamera.setParameters(parameters);
-          configManager.setDesiredCameraParameters(theCamera, true);
+          theCamera.getCamera().setParameters(parameters);
+          configManager.setDesiredCameraParameters(theCamera.getCamera(), true);
         } catch (RuntimeException re2) {
           // Well, darn. Give up
           Log.w(TAG, "Camera rejected even safe-mode parameters! No configuration");
@@ -119,7 +122,7 @@ public final class CameraManager {
    */
   public synchronized void closeDriver() {
     if (camera != null) {
-      camera.release();
+      camera.getCamera().release();
       camera = null;
       // Make sure to clear these each time we close the camera, so that any scanning rect
       // requested by intent is forgotten.
@@ -132,11 +135,11 @@ public final class CameraManager {
    * Asks the camera hardware to begin drawing preview frames to the screen.
    */
   public synchronized void startPreview() {
-    Camera theCamera = camera;
+    Camera theCamera = camera.getCamera();
     if (theCamera != null && !previewing) {
       theCamera.startPreview();
       previewing = true;
-      autoFocusManager = new AutoFocusManager(context, camera);
+      autoFocusManager = new AutoFocusManager(context, theCamera);
     }
   }
 
@@ -148,8 +151,8 @@ public final class CameraManager {
       autoFocusManager.stop();
       autoFocusManager = null;
     }
-    if (camera != null && previewing) {
-      camera.stopPreview();
+    if (camera.getCamera() != null && previewing) {
+      camera.getCamera().stopPreview();
       //previewCallback.setHandler(null, 0);
       previewing = false;
     }
